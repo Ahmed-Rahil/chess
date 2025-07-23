@@ -1,6 +1,9 @@
 # Node.js dependencies
 node_modules/
 
+backend.yaml
+frontend.yaml
+
 # Logs
 logs
 *.log

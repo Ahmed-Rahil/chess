@@ -11,7 +11,7 @@ const path = require('path');
 
 const chess = new Chess();
 let players = {};
-let currentPleyer = 'W';
+let currentPlayer = 'W';
 
 
 
@@ -21,12 +21,54 @@ app.get('/', (req, res) => {
   res.render('index');
 });
 
-io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
-  socket.on('test', () => {
-    console.log('Test message received from client');
+io.on('connection', (uniquesocket) => {
+  console.log('A user connected:', uniquesocket.id);
+
+  if(!players.white) {
+    players.white = uniquesocket.id;
+    uniquesocket.emit('playerRole', 'white');
+  }
+  else if(!players.black) {
+    players.black = uniquesocket.id;
+    uniquesocket.emit('playerRole', 'black');
+  } else {
+    uniquesocket.emit('spectator');
+    return;
+  }
+
+  uniquesocket.on('disconnect', () => {
+    if (players.white === uniquesocket.id) {
+      delete players.white;
+    }
+    else if (players.black === uniquesocket.id) {
+      delete players.black;
+    }});
+
+  uniquesocket.on('makeMove', (move) => {
+    try{
+      if(chess.turn() === 'white' && players.white !== uniquesocket.id ||
+         chess.turn() === 'black' && players.black !== uniquesocket.id) 
+         return;
+      const result = chess.move(move);
+      if(result) {
+        console.log('Move made:', move);
+        currentPlayer = chess.turn();
+        io.emit('moveMade', move);
+        io.emit('gameState', chess.fen());
+      }
+      else{
+        console.error('Invalid move:', move);
+        uniquesocket.emit('invalidMove', 'Invalid move: ' + move);
+      }
+    }
+    catch(error) {
+      console.error('Invalid move:', error);
+      uniquesocket.emit('invalidMove', error.message);
+      return;
+    }
   });
-  socket.emit('move');
+
+
 });
 
 
